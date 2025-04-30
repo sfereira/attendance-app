@@ -1,33 +1,36 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Admin Dashboard</title>
+    <title>Attendance Dashboard</title>
 </head>
 <body>
     <h2>Attendance Records</h2>
-    <table border="1">
+
+    <table border="1" cellpadding="5">
         <thead>
             <tr>
                 <th>Date</th>
                 <th>Name</th>
-                <th>Action</th>
+                <th>Type</th>
                 <th>Time</th>
                 <th>Status</th>
             </tr>
         </thead>
         <tbody>
-            {% for row in records %}
-                <tr>
-                    <td>{{ row['Date'] }}</td>
-                    <td>{{ row['Name'] }}</td>
-                    <td>{{ row['Action'] }}</td>
-                    <td>{{ row['Time'] }}</td>
-                    <td>{{ row['Status'] }}</td>
-                </tr>
-            {% endfor %}
+        {% for row in records %}
+            <tr>
+                <td>{{ row.Date }}</td>
+                <td>{{ row.Name }}</td>
+                <td>{{ row.Type }}</td>
+                <td>{{ row.Time }}</td>
+                <td>{{ row.Status }}</td>
+            </tr>
+        {% endfor %}
         </tbody>
     </table>
+
     <br>
-    <a href="/logout">Logout</a>
+    <a href="/download-attendance?key={{ key }}">📥 Download Attendance CSV</a><br><br>
+    <a href="/logout?key={{ key }}">🔓 Logout</a>
 </body>
 </html>
