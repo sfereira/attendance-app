@@ -2,6 +2,7 @@ import hmac
 import hashlib
 from flask import Flask, render_template, request, redirect, session, url_for, flash, send_file
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import os
 import csv
 import qrcode
@@ -11,12 +12,12 @@ app.secret_key = 'your_flask_session_key_here'
 
 CSV_FILE = 'attendance.csv'
 STUDENT_FILE = 'students.csv'
-SECRET_KEY_SALT = b'MY_SECRET_SALT'  # Replace this securely
+SECRET_KEY_SALT = b'MY_SECRET_SALT'  # Replace with your secure value
 
 # Generate secure daily HMAC key
 def generate_secure_key(date_str=None):
     if not date_str:
-        date_str = datetime.now().strftime("%Y-%m-%d")
+        date_str = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
     return hmac.new(SECRET_KEY_SALT, date_str.encode(), hashlib.sha256).hexdigest()
 
 # Generate daily QR code
@@ -25,7 +26,7 @@ def generate_daily_qr():
     base_url = "https://pccc-solar-training-program-attendance.onrender.com"
     full_url = f"{base_url}/?key={secure_key}"
     img = qrcode.make(full_url)
-    filename = f"secure_qr_{datetime.now().strftime('%Y%m%d')}.png"
+    filename = f"secure_qr_{datetime.now(ZoneInfo('America/New_York')).strftime('%Y%m%d')}.png"
     img.save(filename)
     print(f"\n✅ Secure QR Code URL: {full_url}")
     print(f"📸 QR saved as: {filename}\n")
@@ -42,7 +43,7 @@ students = load_students()
 
 # Get check-in state
 def get_checkin_state(student_name):
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now(ZoneInfo("America/New_York")).strftime("%Y-%m-%d")
     state = {'morning': False, 'lunch': False}
     if not student_name or not os.path.exists(CSV_FILE):
         return state
@@ -60,20 +61,19 @@ def get_checkin_state(student_name):
                     state['lunch'] = True
     return state
 
-# HOME / INDEX
 @app.route('/')
 def index():
     url_key = request.args.get('key')
     expected_key = generate_secure_key()
 
-    # Auto-redirect with secure key if missing
     if url_key != expected_key:
         selected = request.args.get('student', '')
         return redirect(url_for('index', key=expected_key, student=selected))
 
     selected = request.args.get('student') or ""
-    today = datetime.now().strftime("%Y-%m-%d")
-    current_day = datetime.now().strftime("%A")
+    now = datetime.now(ZoneInfo("America/New_York"))
+    today = now.strftime("%Y-%m-%d")
+    current_day = now.strftime("%A")
     checkin_state = get_checkin_state(selected)
 
     if selected and checkin_state['morning'] and checkin_state['lunch']:
@@ -87,13 +87,12 @@ def index():
                            today=today,
                            key=url_key)
 
-# SUBMIT CHECK-IN
 @app.route('/submit', methods=['POST'])
 def submit():
     name = request.form.get('student')
     check_type = request.form.get('action')
     secure_key = request.form.get('key')
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("America/New_York"))
     recorded_time = now.strftime("%H:%M")
     display_time = now.strftime("%I:%M %p")
     date = now.strftime("%Y-%m-%d")
@@ -121,7 +120,6 @@ def submit():
     flash(f"Your {check_type} is recorded at {display_time}")
     return redirect(url_for('index', student=name, key=secure_key))
 
-# ADMIN LOGIN
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
     url_key = request.args.get('key')
@@ -141,7 +139,6 @@ def admin():
 
     return render_template('admin.html', key=url_key)
 
-# ADMIN DASHBOARD
 @app.route('/dashboard')
 def dashboard():
     url_key = request.args.get('key')
@@ -169,7 +166,6 @@ def dashboard():
 
     return render_template('dashboard.html', records=records, key=url_key)
 
-# DOWNLOAD CSV
 @app.route('/download-attendance')
 def download_attendance():
     if not session.get('admin'):
@@ -179,13 +175,11 @@ def download_attendance():
     else:
         return "No attendance data recorded yet."
 
-# LOGOUT
 @app.route('/logout')
 def logout():
     session.pop('admin', None)
     return redirect(url_for('index', key=generate_secure_key()))
 
-# START SERVER
 if __name__ == '__main__':
     generate_daily_qr()
     app.run(debug=False, use_reloader=False)
