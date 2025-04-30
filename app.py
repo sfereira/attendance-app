@@ -1,6 +1,6 @@
 import hmac
 import hashlib
-from flask import Flask, render_template, request, redirect, session, url_for, flash
+from flask import Flask, render_template, request, redirect, session, url_for, flash, send_file
 from datetime import datetime
 import os
 import csv
@@ -11,26 +11,26 @@ app.secret_key = 'your_flask_session_key_here'
 
 CSV_FILE = 'attendance.csv'
 STUDENT_FILE = 'students.csv'
-SECRET_KEY_SALT = b'MY_SECRET_SALT'  # 🔐 Use a long, secure value
+SECRET_KEY_SALT = b'MY_SECRET_SALT'  # Replace this securely
 
-# Secure key generator (HMAC-based)
+# Generate secure daily HMAC key
 def generate_secure_key(date_str=None):
     if not date_str:
         date_str = datetime.now().strftime("%Y-%m-%d")
     return hmac.new(SECRET_KEY_SALT, date_str.encode(), hashlib.sha256).hexdigest()
 
-# Generate QR Code
+# Generate daily QR code
 def generate_daily_qr():
     secure_key = generate_secure_key()
-    base_url = "http://localhost:5000"  # Replace with your live domain
+    base_url = "https://pccc-solar-training-program-attendance.onrender.com"
     full_url = f"{base_url}/?key={secure_key}"
     img = qrcode.make(full_url)
     filename = f"secure_qr_{datetime.now().strftime('%Y%m%d')}.png"
     img.save(filename)
     print(f"\n✅ Secure QR Code URL: {full_url}")
-    print(f"📸 QR code saved as: {filename}\n")
+    print(f"📸 QR saved as: {filename}\n")
 
-# Load students
+# Load student list
 def load_students():
     if not os.path.exists(STUDENT_FILE):
         return []
@@ -60,15 +60,16 @@ def get_checkin_state(student_name):
                     state['lunch'] = True
     return state
 
-# Main route
+# HOME / INDEX
 @app.route('/')
 def index():
     url_key = request.args.get('key')
-    today_str = datetime.now().strftime('%Y-%m-%d')
-    expected_key = generate_secure_key(today_str)
+    expected_key = generate_secure_key()
 
+    # Auto-redirect with secure key if missing
     if url_key != expected_key:
-        return "<h3>Invalid or expired QR code. Please ask your instructor for the latest one.</h3>"
+        selected = request.args.get('student', '')
+        return redirect(url_for('index', key=expected_key, student=selected))
 
     selected = request.args.get('student') or ""
     today = datetime.now().strftime("%Y-%m-%d")
@@ -86,7 +87,7 @@ def index():
                            today=today,
                            key=url_key)
 
-# Submit check-in
+# SUBMIT CHECK-IN
 @app.route('/submit', methods=['POST'])
 def submit():
     name = request.form.get('student')
@@ -120,22 +121,37 @@ def submit():
     flash(f"Your {check_type} is recorded at {display_time}")
     return redirect(url_for('index', student=name, key=secure_key))
 
+# ADMIN LOGIN
 @app.route('/admin', methods=['GET', 'POST'])
 def admin():
+    url_key = request.args.get('key')
+    expected_key = generate_secure_key()
+
+    if url_key != expected_key:
+        return redirect(url_for('admin', key=expected_key))
+
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
         if username == 'admin' and password == 'password123':
             session['admin'] = True
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('dashboard', key=url_key))
         else:
-            return render_template('admin.html', error="Invalid credentials")
-    return render_template('admin.html')
+            return render_template('admin.html', error="Invalid credentials", key=url_key)
 
+    return render_template('admin.html', key=url_key)
+
+# ADMIN DASHBOARD
 @app.route('/dashboard')
 def dashboard():
+    url_key = request.args.get('key')
+    expected_key = generate_secure_key()
+
+    if url_key != expected_key:
+        return redirect(url_for('dashboard', key=expected_key))
+
     if not session.get('admin'):
-        return redirect(url_for('admin'))
+        return redirect(url_for('admin', key=url_key))
 
     records = []
     if os.path.exists(CSV_FILE):
@@ -151,14 +167,25 @@ def dashboard():
                         'Status': row[4]
                     })
 
-    return render_template('dashboard.html', records=records)
+    return render_template('dashboard.html', records=records, key=url_key)
 
+# DOWNLOAD CSV
+@app.route('/download-attendance')
+def download_attendance():
+    if not session.get('admin'):
+        return redirect(url_for('admin', key=generate_secure_key()))
+    if os.path.exists(CSV_FILE):
+        return send_file(CSV_FILE, as_attachment=True)
+    else:
+        return "No attendance data recorded yet."
+
+# LOGOUT
 @app.route('/logout')
 def logout():
     session.pop('admin', None)
     return redirect(url_for('index', key=generate_secure_key()))
 
-# Launch the app
+# START SERVER
 if __name__ == '__main__':
     generate_daily_qr()
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(debug=False, use_reloader=False)
