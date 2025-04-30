@@ -16,7 +16,6 @@
     <h2>Attendance System</h2>
     <p><strong>{{ current_day }}</strong> | {{ today }} | <span id="clock"></span></p>
 
-    <!-- Flash messages -->
     {% with messages = get_flashed_messages() %}
         {% if messages %}
             <ul>
@@ -27,7 +26,7 @@
         {% endif %}
     {% endwith %}
 
-    <!-- Student Dropdown -->
+    <!-- Student Selection Form -->
     <form method="GET" action="/">
         <label for="student">Select your name:</label>
         <select name="student" required>
@@ -40,7 +39,6 @@
         <button type="submit">Confirm</button>
     </form>
 
-    <!-- Check-In Buttons -->
     {% if selected %}
     <h3>Welcome, {{ selected }}</h3>
     <form method="POST" action="/submit">
@@ -62,7 +60,6 @@
         <strong>If there is an issue with your attendance, please contact Sheldon Fereira (shfereira@pccc.edu)</strong>
     </p>
 
-    <p><a href="/admin">🔐 Admin Login</a></p>
-
+    <p><a href="/admin?key={{ key }}">🔐 Admin Login</a></p>
 </body>
 </html>
