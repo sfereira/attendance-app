@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Student Check-In</title>
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour12: true });
+            document.getElementById('clock').textContent = timeStr;
+        }
+        setInterval(updateClock, 1000);
+        window.onload = updateClock;
+    </script>
+</head>
+<body>
+    <h2>Attendance System</h2>
+    <p><strong>{{ current_day }}</strong> | {{ today }} | <span id="clock"></span></p>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <ul>
+            {% for message in messages %}
+                <li style="color: green;">{{ message }}</li>
+            {% endfor %}
+            </ul>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Student Dropdown -->
+    <form method="GET" action="/">
+        <label for="student">Select your name:</label>
+        <select name="student" required>
+            <option value="">-- Select --</option>
+            {% for student in students %}
+                <option value="{{ student }}" {% if student == selected %}selected{% endif %}>{{ student }}</option>
+            {% endfor %}
+        </select>
+        <input type="hidden" name="key" value="{{ key }}">
+        <button type="submit">Confirm</button>
+    </form>
+
+    <!-- Check-In Buttons -->
+    {% if selected %}
+    <h3>Welcome, {{ selected }}</h3>
+    <form method="POST" action="/submit">
+        <input type="hidden" name="student" value="{{ selected }}">
+        <input type="hidden" name="key" value="{{ key }}">
+
+        {% if not checkin_state['morning'] %}
+        <button type="submit" name="action" value="Morning Check-In">Morning Check-In</button>
+        {% endif %}
+
+        {% if not checkin_state['lunch'] %}
+        <button type="submit" name="action" value="Lunch Break Check-In">Lunch Break Check-In</button>
+        {% endif %}
+    </form>
+    {% endif %}
+
+    <br><br><hr>
+    <p style="color: red;">
+        <strong>If there is an issue with your attendance, please contact Sheldon Fereira (shfereira@pccc.edu)</strong>
+    </p>
+</body>
+</html>
